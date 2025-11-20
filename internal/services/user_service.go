@@ -5,6 +5,8 @@ import (
 	"vasvault/internal/dto"
 	"vasvault/internal/models"
 	"vasvault/internal/repositories"
+	"vasvault/pkg/utils"
+	apperrors "vasvault/pkg/utils"
 
 	"golang.org/x/crypto/bcrypt"
 )
@@ -14,7 +16,8 @@ type UserServiceInterface interface {
 	Login(request dto.LoginRequest) (*dto.UserResponse, error)
 	GetUser(id uint) (*models.User, error)
 	GetUserByID(id uint) (*dto.UserResponse, error)
-	UpdateUser(id uint, request dto.RegisterRequest) (*dto.UserResponse, error)
+	UpdateUser(id uint, request dto.UpdateProfileRequest) (*dto.UserResponse, error)
+	Refresh(refreshToken string) (*dto.UserResponse, error)
 }
 
 type UserService struct {
@@ -27,7 +30,10 @@ func NewUserService(repo repositories.UserRepositoryInterface) UserServiceInterf
 
 func (s *UserService) Register(request dto.RegisterRequest) (*dto.UserResponse, error) {
 	if _, err := s.repository.FindByEmail(request.Email); err == nil {
-		return nil, fmt.Errorf("email already registered")
+		return nil, apperrors.ErrEmailExists
+	}
+	if _, err := s.repository.FindByUsername(request.Username); err == nil {
+		return nil, apperrors.ErrUsernameExists
 	}
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(request.Password), bcrypt.DefaultCost)
@@ -86,7 +92,7 @@ func (s *UserService) GetUserByID(id uint) (*dto.UserResponse, error) {
 	return response, nil
 }
 
-func (s *UserService) UpdateUser(id uint, request dto.RegisterRequest) (*dto.UserResponse, error) {
+func (s *UserService) UpdateUser(id uint, request dto.UpdateProfileRequest) (*dto.UserResponse, error) {
 	user, err := s.repository.FindByID(id)
 	if err != nil {
 		return nil, fmt.Errorf("user not found: %w", err)
@@ -126,4 +132,24 @@ func (s *UserService) GetUser(id uint) (*models.User, error) {
 		return nil, fmt.Errorf("user not found: %w", err)
 	}
 	return user, nil
+}
+
+func (s *UserService) Refresh(refreshToken string) (*dto.UserResponse, error) {
+	token, err := utils.ValidateRefreshToken(refreshToken)
+
+	if err != nil {
+		return nil, fmt.Errorf("invalid refresh token: %w", err)
+	}
+
+	user, err := s.repository.FindByID(token.ID)
+	if err != nil {
+		return nil, fmt.Errorf("user not found: %w", err)
+	}
+
+	response := &dto.UserResponse{
+		ID:       user.ID,
+		Email:    user.Email,
+		Username: user.Username,
+	}
+	return response, nil
 }

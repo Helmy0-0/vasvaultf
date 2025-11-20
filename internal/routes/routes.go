@@ -21,6 +21,7 @@ func InitRoutes(r *gin.Engine, db *gorm.DB) {
 		// Public routes
 		apiV1.POST("/login", userHandler.Login)
 		apiV1.POST("/register", userHandler.Register)
+		apiV1.POST("/refresh", userHandler.Refresh)
 
 		// Protected routes
 		protected := apiV1.Group("")
