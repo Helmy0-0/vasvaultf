@@ -1,10 +1,12 @@
 package handlers
 
 import (
+	"errors"
 	"net/http"
 	"vasvault/internal/dto"
 	"vasvault/internal/services"
 	"vasvault/pkg/utils"
+	apperrors "vasvault/pkg/utils"
 
 	"github.com/gin-gonic/gin"
 )
@@ -60,28 +62,27 @@ func (h *UserHandler) Register(c *gin.Context) {
 
 	resp, err := h.userService.Register(userRequest)
 	if err != nil {
-		utils.RespondJSON(c, http.StatusInternalServerError, nil, err.Error())
-		return
+		switch {
+		case errors.Is(err, apperrors.ErrEmailExists):
+			utils.RespondJSON(c, http.StatusConflict, nil, "email already exists")
+			return
+		case errors.Is(err, apperrors.ErrUsernameExists):
+			utils.RespondJSON(c, http.StatusConflict, nil, "username already exists")
+			return
+		default:
+			utils.RespondJSON(c, http.StatusInternalServerError, nil, err.Error())
+			return
+		}
 	}
 
-	createdUser, err := h.userService.GetUser(resp.ID)
-	if err != nil {
-		utils.RespondJSON(c, http.StatusInternalServerError, nil, "Failed to fetch created user")
-		return
-	}
-
-	token, err := utils.GenerateTokenPair(createdUser.Username, createdUser.ID)
+	token, err := utils.GenerateTokenPair(resp.Username, resp.ID)
 	if err != nil {
 		utils.RespondJSON(c, http.StatusInternalServerError, nil, "Failed to generate tokens")
 		return
 	}
 
 	response := dto.AuthResponse{
-		User: dto.UserResponse{
-			ID:       createdUser.ID,
-			Email:    createdUser.Email,
-			Username: createdUser.Username,
-		},
+		User: *resp,
 		Token: dto.TokenResponse{
 			AccessToken:  token.AccessToken,
 			RefreshToken: token.RefreshToken,
@@ -104,7 +105,6 @@ func (h *UserHandler) Login(c *gin.Context) {
 		utils.RespondJSON(c, http.StatusUnauthorized, nil, "Invalid email or password")
 		return
 	}
-
 	token, err := utils.GenerateTokenPair(userResp.Username, userResp.ID)
 	if err != nil {
 		utils.RespondJSON(c, http.StatusInternalServerError, nil, "Failed to generate tokens")
@@ -143,7 +143,7 @@ func (h *UserHandler) UpdateProfile(c *gin.Context) {
 		}
 	}
 
-	var updateRequest dto.RegisterRequest
+	var updateRequest dto.UpdateProfileRequest
 	if err := c.ShouldBindJSON(&updateRequest); err != nil {
 		utils.RespondJSON(c, http.StatusBadRequest, nil, "Validation error")
 		return
@@ -156,4 +156,46 @@ func (h *UserHandler) UpdateProfile(c *gin.Context) {
 	}
 
 	utils.RespondJSON(c, http.StatusOK, resp, "Profile updated successfully")
+}
+
+func (h *UserHandler) Refresh(c *gin.Context) {
+	var refreshRequest struct {
+		RefreshToken string `json:"refresh_token" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&refreshRequest); err != nil {
+		utils.RespondJSON(c, http.StatusBadRequest, nil, "Validation error")
+		return
+	}
+
+	userResp, err := h.userService.Refresh(refreshRequest.RefreshToken)
+	if err != nil {
+		utils.RespondJSON(c, http.StatusUnauthorized, nil, "Invalid refresh token")
+		return
+	}
+
+	createdUser, err := h.userService.GetUser(userResp.ID)
+	if err != nil {
+		utils.RespondJSON(c, http.StatusInternalServerError, nil, "Failed to fetch user")
+		return
+	}
+
+	token, err := utils.GenerateTokenPair(createdUser.Username, createdUser.ID)
+	if err != nil {
+		utils.RespondJSON(c, http.StatusInternalServerError, nil, "Failed to generate tokens")
+		return
+	}
+	response := dto.AuthResponse{
+		User: dto.UserResponse{
+			ID:       createdUser.ID,
+			Email:    createdUser.Email,
+			Username: createdUser.Username,
+		},
+		Token: dto.TokenResponse{
+			AccessToken:  token.AccessToken,
+			RefreshToken: token.RefreshToken,
+		},
+	}
+
+	utils.RespondJSON(c, http.StatusOK, response, "Token refreshed successfully")
 }
