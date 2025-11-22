@@ -19,14 +19,30 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           password: ${{ secrets.VPS_PASSWORD }}
           port: ${{ secrets.VPS_PORT }}
+          envs: ENV_FILE
+        env:
+          ENV_FILE: ${{ secrets.ENV_FILE }}
           script: |
-            cd /vasvault
+            DEPLOY_DIR="$HOME/vasvault"
+            
+            # Clone repository if it doesn't exist
+            if [ ! -d "$DEPLOY_DIR" ]; then
+              echo "Directory not found. Cloning repository..."
+              git clone https://github.com/wignn/vasvault.git "$DEPLOY_DIR"
+            fi
+            
+            # Navigate to the project directory
+            cd "$DEPLOY_DIR"
             
             echo "Pulling latest changes from main branch..."
-            git pull origin main
+            git fetch origin
+            git reset --hard origin/main
+            
+            echo "Creating .env file from secrets..."
+            echo "$ENV_FILE" > .env
             
             echo "Stopping existing containers..."
-            docker compose down
+            docker compose down || true
             
             echo "Building new images..."
             docker compose build --no-cache
@@ -35,7 +51,7 @@ jobs:
             docker compose up -d
             
             echo "Cleaning up old images..."
-            docker image prune -f
+            docker image prune -f || true
             
             echo "Deployment completed successfully!"
             
