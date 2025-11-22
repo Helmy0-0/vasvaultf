@@ -2,8 +2,10 @@ services:
   postgres:
     image: postgres:15-alpine
     container_name: vasvault-db
-    env_file:
-      - .env
+    environment:
+      POSTGRES_USER: ${DB_USER:-vasvault}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME:-vasvault}
     ports:
       - "${DB_PORT:-5432}:5432"
     volumes:
@@ -15,6 +17,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
 
   app:
     build:
