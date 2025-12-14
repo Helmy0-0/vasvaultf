@@ -1,12 +1,10 @@
-version: '3.8'
-
 services:
   postgres:
     image: postgres:15-alpine
     container_name: vasvault-db
     environment:
       POSTGRES_USER: ${DB_USER:-vasvault}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-vasvault123}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: ${DB_NAME:-vasvault}
     ports:
       - "${DB_PORT:-5432}:5432"
@@ -19,18 +17,15 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
 
   app:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: vasvault-app
-    environment:
-      DATABASE_URL: "host=postgres user=${DB_USER:-vasvault} password=${DB_PASSWORD:-vasvault123} dbname=${DB_NAME:-vasvault} port=5432 sslmode=disable TimeZone=Asia/Jakarta"
-      JWT_SECRET: ${JWT_SECRET:-your-secret-key-change-this-in-production}
-      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-your-refresh-secret-key}
-      GIN_MODE: ${GIN_MODE:-release}
-      PORT: ${APP_PORT:-8080}
+    env_file:
+      - .env
     ports:
       - "${APP_PORT:-8080}:8080"
     depends_on:
