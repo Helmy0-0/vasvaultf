@@ -15,6 +15,10 @@ func InitRoutes(r *gin.Engine, db *gorm.DB) {
 	userService := services.NewUserService(userRepo)
 	userHandler := handlers.NewUserHandler(userService)
 
+	fileRepo := repositories.NewFileRepository(db)
+	fileService := services.NewFileService(fileRepo, "./uploads")
+	fileHandler := handlers.NewFileHandler(fileService)
+
 	// Category module
 	categoryRepo := repositories.NewCategoryRepository(db)
 	categoryService := services.NewCategoryService(categoryRepo)
@@ -41,6 +45,11 @@ func InitRoutes(r *gin.Engine, db *gorm.DB) {
 			protected.GET("/categories/:id", categoryHandler.Detail)
 			protected.PUT("/categories/:id", categoryHandler.Update)
 			protected.DELETE("/categories/:id", categoryHandler.Delete)
+
+			protected.POST("/files", fileHandler.Upload)
+			protected.GET("/files", fileHandler.ListMyFiles)
+			protected.GET("/files/:id", fileHandler.GetByID)
+			protected.DELETE("/files/:id", fileHandler.Delete)
 		}
 	}
 }
