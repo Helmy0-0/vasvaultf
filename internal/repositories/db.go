@@ -25,7 +25,7 @@ func Connect() (*DB, error) {
 	if err != nil {
 		return nil, fmt.Errorf("gagal terhubung ke database: %v", err)
 	}
-	if err := db.AutoMigrate(&models.User{}, &models.File{}, &models.FileShare{}, &models.Category{}, &models.PublicLink{}, &models.WorkspaceMember{}, &models.WorkspaceMember{}); err != nil {
+	if err := db.AutoMigrate(&models.User{}, &models.File{}, &models.FileShare{}, &models.Category{}, &models.PublicLink{}, &models.Workspace{}, &models.WorkspaceMember{}); err != nil {
 		log.Printf("Gagal melakukan migrasi: %v", err)
 		return &DB{db}, err
 	}
