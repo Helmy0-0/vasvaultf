@@ -2,11 +2,15 @@ package handlers
 
 import (
 	"net/http"
+	"os"
+	"path/filepath"
 	"strconv"
+	"strings"
 	"vasvault/internal/dto"
 	"vasvault/internal/services"
 	"vasvault/pkg/utils"
 
+	"github.com/disintegration/imaging"
 	"github.com/gin-gonic/gin"
 )
 
@@ -70,6 +74,77 @@ func (h *FileHandler) GetByID(c *gin.Context) {
 	}
 
 	utils.RespondJSON(c, http.StatusOK, response, "ok")
+}
+
+// Download - GET /files/:id/download
+func (h *FileHandler) Download(c *gin.Context) {
+	idParam := c.Param("id")
+	fileID, err := strconv.ParseUint(idParam, 10, 64)
+	if err != nil {
+		utils.RespondJSON(c, http.StatusBadRequest, nil, "invalid file id")
+		return
+	}
+
+	response, err := h.FileService.GetFileByID(uint(fileID))
+	if err != nil {
+		utils.RespondJSON(c, http.StatusNotFound, nil, "file not found")
+		return
+	}
+
+	// Serve file directly (Gin will set content-type)
+	c.File(response.FilePath)
+}
+
+// Thumbnail - GET /files/:id/thumbnail
+// Generates a cached thumbnail (200x200) and serves it.
+func (h *FileHandler) Thumbnail(c *gin.Context) {
+	idParam := c.Param("id")
+	fileID, err := strconv.ParseUint(idParam, 10, 64)
+	if err != nil {
+		utils.RespondJSON(c, http.StatusBadRequest, nil, "invalid file id")
+		return
+	}
+
+	response, err := h.FileService.GetFileByID(uint(fileID))
+	if err != nil {
+		utils.RespondJSON(c, http.StatusNotFound, nil, "file not found")
+		return
+	}
+
+	// only handle image types
+	if !strings.HasPrefix(response.MimeType, "image/") {
+		utils.RespondJSON(c, http.StatusBadRequest, nil, "thumbnail only supported for images")
+		return
+	}
+
+	thumbDir := filepath.Join("./uploads", "thumbs")
+	if err := os.MkdirAll(thumbDir, os.ModePerm); err != nil {
+		utils.RespondJSON(c, http.StatusInternalServerError, nil, "failed to create thumb dir")
+		return
+	}
+
+	base := filepath.Base(response.FilePath)
+	thumbPath := filepath.Join(thumbDir, base+".thumb.jpg")
+
+	// serve cached thumbnail if exists
+	if _, err := os.Stat(thumbPath); err == nil {
+		c.File(thumbPath)
+		return
+	}
+
+	// generate thumbnail
+	img, err := imaging.Open(response.FilePath)
+	if err != nil {
+		utils.RespondJSON(c, http.StatusInternalServerError, nil, "failed to open image")
+		return
+	}
+	thumb := imaging.Thumbnail(img, 200, 200, imaging.Lanczos)
+	if err := imaging.Save(thumb, thumbPath, imaging.JPEGQuality(80)); err != nil {
+		utils.RespondJSON(c, http.StatusInternalServerError, nil, "failed to save thumbnail")
+		return
+	}
+
+	c.File(thumbPath)
 }
 
 func (h *FileHandler) ListMyFiles(c *gin.Context) {
