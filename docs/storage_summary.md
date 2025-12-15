@@ -15,6 +15,6 @@ Response (200):
   "max_bytes": 5368709120,
   "used_bytes": 12345678,
   "remaining_bytes": 5356363442,
-  "latest_file": { "id":1, "file_name":"abc.pdf", "size":12345678 }
+  "latest_file": [{ "id":1, "file_name":"abc.pdf", "size":12345678 }]
 }
 ```
