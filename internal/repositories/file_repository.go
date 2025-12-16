@@ -19,6 +19,7 @@ type FileRepositoryInterface interface {
 	ClearAllCategories(fileID uint) error
 	TotalUserStorage(userID uint) (int64, error)
 	GetLatestFileForUser(userID uint) (*models.File, error)
+	GetLatestFilesForUser(userID uint, limit int) ([]models.File, error)
 }
 
 type FileRepository struct {
@@ -140,4 +141,12 @@ func (r *FileRepository) GetLatestFileForUser(userID uint) (*models.File, error)
 		return nil, err
 	}
 	return &file, nil
+}
+
+func (r *FileRepository) GetLatestFilesForUser(userID uint, limit int) ([]models.File, error) {
+	var files []models.File
+	if err := r.db.Preload("Categories").Where("user_id = ?", userID).Order("uploaded_at desc").Limit(limit).Find(&files).Error; err != nil {
+		return nil, err
+	}
+	return files, nil
 }

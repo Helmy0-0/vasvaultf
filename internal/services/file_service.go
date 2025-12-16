@@ -66,7 +66,7 @@ func (s *FileService) UploadFile(userID uint, file multipart.File, header *multi
 		Mimetype:    header.Header.Get("Content-Type"),
 		Size:        header.Size,
 		UserID:      userID,
-		WorkspaceID: request.FolderId,
+		WorkspaceID: request.WorkspaceId,
 		UploadedAt:  time.Now(),
 	}
 
@@ -97,11 +97,11 @@ func (s *FileService) UploadFile(userID uint, file multipart.File, header *multi
 	}
 
 	response := dto.FileResponse{
-		ID:         model.ID,
-		UserId:     model.UserID,
-		FolderId:   model.WorkspaceID,
-		FileName:   model.Filename,
-		FilePath:   model.Filepath,
+		ID:          model.ID,
+		UserId:      model.UserID,
+		WorkspaceId: model.WorkspaceID,
+		FileName:    model.Filename,
+		FilePath:    model.Filepath,
 		MimeType:   model.Mimetype,
 		Size:       model.Size,
 		Categories: categories,
@@ -127,11 +127,11 @@ func (s *FileService) GetFileByID(fileID uint) (*dto.FileResponse, error) {
 	}
 
 	response := dto.FileResponse{
-		ID:         file.ID,
-		UserId:     file.UserID,
-		FolderId:   file.WorkspaceID,
-		FileName:   file.Filename,
-		FilePath:   file.Filepath,
+		ID:          file.ID,
+		UserId:      file.UserID,
+		WorkspaceId: file.WorkspaceID,
+		FileName:    file.Filename,
+		FilePath:    file.Filepath,
 		MimeType:   file.Mimetype,
 		Size:       file.Size,
 		Categories: categories,
@@ -157,11 +157,11 @@ func (s *FileService) ListUserFiles(userID uint) ([]dto.FileResponse, error) {
 		}
 
 		responses = append(responses, dto.FileResponse{
-			ID:         f.ID,
-			UserId:     f.UserID,
-			FolderId:   f.WorkspaceID,
-			FileName:   f.Filename,
-			FilePath:   f.Filepath,
+			ID:          f.ID,
+			UserId:      f.UserID,
+			WorkspaceId: f.WorkspaceID,
+			FileName:    f.Filename,
+			FilePath:    f.Filepath,
 			MimeType:   f.Mimetype,
 			Size:       f.Size,
 			Categories: categories,
@@ -263,18 +263,18 @@ func (s *FileService) ListUserFilesWithOptionalCategory(userID uint, categoryID 
 		}
 
 		response = append(response, dto.FileResponse{
-			ID:         file.ID,
-			UserId:     file.UserID,
-			FolderId:   file.WorkspaceID,
-			FileName:   file.Filename,
-			FilePath:   file.Filepath,
+			ID:          file.ID,
+			UserId:      file.UserID,
+			WorkspaceId: file.WorkspaceID,
+			FileName:    file.Filename,
+			FilePath:    file.Filepath,
 			MimeType:   file.Mimetype,
 			Size:       file.Size,
 			Categories: categories,
 			CreatedAt:  file.UploadedAt,
 		})
 	}
-
+	
 	return response, nil
 }
 
@@ -286,10 +286,13 @@ func (s *FileService) GetStorageSummary(userID uint) (*dto.StorageSummaryRespons
 	if err != nil {
 		return nil, err
 	}
+	files, err := s.repository.GetLatestFilesForUser(userID, 10)
+	if err != nil {
+		files = []models.File{}
+	}
 
-	var latestDto *dto.FileResponse
-	latest, err := s.repository.GetLatestFileForUser(userID)
-	if err == nil && latest != nil {
+	var latestDtos []dto.FileResponse
+	for _, latest := range files {
 		var categories []dto.CategorySimple
 		for _, cat := range latest.Categories {
 			categories = append(categories, dto.CategorySimple{ID: cat.ID, Name: cat.Name, Color: cat.Color})
@@ -297,7 +300,7 @@ func (s *FileService) GetStorageSummary(userID uint) (*dto.StorageSummaryRespons
 		f := dto.FileResponse{
 			ID:         latest.ID,
 			UserId:     latest.UserID,
-			FolderId:   latest.WorkspaceID,
+			WorkspaceId:latest.WorkspaceID,
 			FileName:   latest.Filename,
 			FilePath:   latest.Filepath,
 			MimeType:   latest.Mimetype,
@@ -305,7 +308,7 @@ func (s *FileService) GetStorageSummary(userID uint) (*dto.StorageSummaryRespons
 			Categories: categories,
 			CreatedAt:  latest.UploadedAt,
 		}
-		latestDto = &f
+		latestDtos = append(latestDtos, f)
 	}
 
 	remaining := maxBytes - used
@@ -317,6 +320,6 @@ func (s *FileService) GetStorageSummary(userID uint) (*dto.StorageSummaryRespons
 		MaxBytes:       maxBytes,
 		UsedBytes:      used,
 		RemainingBytes: remaining,
-		LatestFile:     latestDto,
+		LatestFiles:    latestDtos,
 	}, nil
 }

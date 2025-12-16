@@ -9,7 +9,7 @@ Auth: Bearer (required)
 Form fields:
 
 - `file` (file, required)
-- `folder_id` (optional)
+- `workspace_id` (optional)
 - `category_ids` (optional, JSON array)
 
 Response (200):
