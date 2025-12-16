@@ -17,7 +17,6 @@ func NewWorkspaceHandler(service services.WorkspaceService) *WorkspaceHandler {
 }
 
 func (h *WorkspaceHandler) Create(c *gin.Context) {
-
 	userIDCtx, exists := c.Get("userID") 
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
@@ -59,7 +58,6 @@ func (h *WorkspaceHandler) List(c *gin.Context) {
 }
 
 func (h *WorkspaceHandler) Detail(c *gin.Context) {
-    
     userIDCtx, _ := c.Get("userID")
     userID := userIDCtx.(uint)
 
