@@ -185,6 +185,39 @@ func (h *FileHandler) ListMyFiles(c *gin.Context) {
 	utils.RespondJSON(c, http.StatusOK, response, "ok")
 }
 
+func (h *FileHandler) ListByWorkspace(c *gin.Context) {
+	uid, ok := c.Get("userID")
+	if !ok {
+		utils.RespondJSON(c, http.StatusUnauthorized, nil, "user not found in context")
+		return
+	}
+
+	userID, ok := uid.(uint)
+	if !ok {
+		if fid, ok := uid.(float64); ok {
+			userID = uint(fid)
+		} else {
+			utils.RespondJSON(c, http.StatusInternalServerError, nil, "invalid user id")
+			return
+		}
+	}
+
+	idParam := c.Param("id")
+	workspaceID, err := strconv.Atoi(idParam)
+	if err != nil {
+		utils.RespondJSON(c, http.StatusBadRequest, nil, "invalid workspace id")
+		return
+	}
+
+	resp, err := h.FileService.ListFilesByWorkspace(userID, uint(workspaceID))
+	if err != nil {
+		utils.RespondJSON(c, http.StatusBadRequest, nil, err.Error())
+		return
+	}
+
+	utils.RespondJSON(c, http.StatusOK, resp, "ok")
+}
+
 func (h *FileHandler) Delete(c *gin.Context) {
 	idParam := c.Param("id")
 	fileID, err := strconv.ParseUint(idParam, 10, 64)

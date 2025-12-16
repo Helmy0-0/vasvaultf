@@ -20,6 +20,7 @@ type FileServiceInterface interface {
 	GetFileByID(fileID uint) (*dto.FileResponse, error)
 	ListUserFiles(userID uint) ([]dto.FileResponse, error)
 	ListUserFilesWithOptionalCategory(userID uint, categoryID *uint) ([]dto.FileResponse, error)
+	ListFilesByWorkspace(userID uint, workspaceID uint) ([]dto.FileResponse, error)
 	DeleteFile(fileID uint) error
 	AssignCategories(userID, fileID uint, categoryIDs []uint) error
 	RemoveCategories(userID, fileID uint, categoryIDs []uint) error
@@ -28,14 +29,16 @@ type FileServiceInterface interface {
 }
 
 type FileService struct {
-	repository repositories.FileRepositoryInterface
-	basePath   string
+	repository    repositories.FileRepositoryInterface
+	workspaceRepo repositories.WorkspaceRepository
+	basePath      string
 }
 
-func NewFileService(repo repositories.FileRepositoryInterface, basePath string) FileServiceInterface {
+func NewFileService(repo repositories.FileRepositoryInterface, workspaceRepo repositories.WorkspaceRepository, basePath string) FileServiceInterface {
 	return &FileService{
-		repository: repo,
-		basePath:   basePath,
+		repository:    repo,
+		workspaceRepo: workspaceRepo,
+		basePath:      basePath,
 	}
 }
 
@@ -102,10 +105,10 @@ func (s *FileService) UploadFile(userID uint, file multipart.File, header *multi
 		WorkspaceId: model.WorkspaceID,
 		FileName:    model.Filename,
 		FilePath:    model.Filepath,
-		MimeType:   model.Mimetype,
-		Size:       model.Size,
-		Categories: categories,
-		CreatedAt:  model.UploadedAt,
+		MimeType:    model.Mimetype,
+		Size:        model.Size,
+		Categories:  categories,
+		CreatedAt:   model.UploadedAt,
 	}
 
 	return &response, nil
@@ -132,10 +135,10 @@ func (s *FileService) GetFileByID(fileID uint) (*dto.FileResponse, error) {
 		WorkspaceId: file.WorkspaceID,
 		FileName:    file.Filename,
 		FilePath:    file.Filepath,
-		MimeType:   file.Mimetype,
-		Size:       file.Size,
-		Categories: categories,
-		CreatedAt:  file.UploadedAt,
+		MimeType:    file.Mimetype,
+		Size:        file.Size,
+		Categories:  categories,
+		CreatedAt:   file.UploadedAt,
 	}
 	return &response, nil
 }
@@ -162,10 +165,10 @@ func (s *FileService) ListUserFiles(userID uint) ([]dto.FileResponse, error) {
 			WorkspaceId: f.WorkspaceID,
 			FileName:    f.Filename,
 			FilePath:    f.Filepath,
-			MimeType:   f.Mimetype,
-			Size:       f.Size,
-			Categories: categories,
-			CreatedAt:  f.UploadedAt,
+			MimeType:    f.Mimetype,
+			Size:        f.Size,
+			Categories:  categories,
+			CreatedAt:   f.UploadedAt,
 		})
 	}
 	return responses, err
@@ -268,13 +271,13 @@ func (s *FileService) ListUserFilesWithOptionalCategory(userID uint, categoryID 
 			WorkspaceId: file.WorkspaceID,
 			FileName:    file.Filename,
 			FilePath:    file.Filepath,
-			MimeType:   file.Mimetype,
-			Size:       file.Size,
-			Categories: categories,
-			CreatedAt:  file.UploadedAt,
+			MimeType:    file.Mimetype,
+			Size:        file.Size,
+			Categories:  categories,
+			CreatedAt:   file.UploadedAt,
 		})
 	}
-	
+
 	return response, nil
 }
 
@@ -298,15 +301,15 @@ func (s *FileService) GetStorageSummary(userID uint) (*dto.StorageSummaryRespons
 			categories = append(categories, dto.CategorySimple{ID: cat.ID, Name: cat.Name, Color: cat.Color})
 		}
 		f := dto.FileResponse{
-			ID:         latest.ID,
-			UserId:     latest.UserID,
-			WorkspaceId:latest.WorkspaceID,
-			FileName:   latest.Filename,
-			FilePath:   latest.Filepath,
-			MimeType:   latest.Mimetype,
-			Size:       latest.Size,
-			Categories: categories,
-			CreatedAt:  latest.UploadedAt,
+			ID:          latest.ID,
+			UserId:      latest.UserID,
+			WorkspaceId: latest.WorkspaceID,
+			FileName:    latest.Filename,
+			FilePath:    latest.Filepath,
+			MimeType:    latest.Mimetype,
+			Size:        latest.Size,
+			Categories:  categories,
+			CreatedAt:   latest.UploadedAt,
 		}
 		latestDtos = append(latestDtos, f)
 	}
@@ -322,4 +325,37 @@ func (s *FileService) GetStorageSummary(userID uint) (*dto.StorageSummaryRespons
 		RemainingBytes: remaining,
 		LatestFiles:    latestDtos,
 	}, nil
+}
+
+func (s *FileService) ListFilesByWorkspace(userID uint, workspaceID uint) ([]dto.FileResponse, error) {
+	// verify membership
+	if _, err := s.workspaceRepo.FindMember(workspaceID, userID); err != nil {
+		return nil, fmt.Errorf("unauthorized: you are not a member of this workspace")
+	}
+
+	files, err := s.repository.ListFilesByWorkspaceWithCategories(workspaceID)
+	if err != nil {
+		return nil, err
+	}
+
+	var responses []dto.FileResponse
+	for _, f := range files {
+		var categories []dto.CategorySimple
+		for _, cat := range f.Categories {
+			categories = append(categories, dto.CategorySimple{ID: cat.ID, Name: cat.Name, Color: cat.Color})
+		}
+		responses = append(responses, dto.FileResponse{
+			ID:          f.ID,
+			UserId:      f.UserID,
+			WorkspaceId: f.WorkspaceID,
+			FileName:    f.Filename,
+			FilePath:    f.Filepath,
+			MimeType:    f.Mimetype,
+			Size:        f.Size,
+			Categories:  categories,
+			CreatedAt:   f.UploadedAt,
+		})
+	}
+
+	return responses, nil
 }

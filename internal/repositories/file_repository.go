@@ -12,6 +12,7 @@ type FileRepositoryInterface interface {
 	FindByIDWithCategories(id uint) (*models.File, error)
 	ListUserFiles(userID uint) ([]models.File, error)
 	ListUserFilesWithCategories(userID uint) ([]models.File, error)
+	ListFilesByWorkspaceWithCategories(workspaceID uint) ([]models.File, error)
 	ListUserFilesWithOptionalCategory(userID uint, categoryID *uint) ([]models.File, error)
 	Delete(fileID uint) error
 	AssignCategories(fileID uint, categoryIDs []uint) error
@@ -122,6 +123,14 @@ func (r *FileRepository) ListUserFilesWithOptionalCategory(userID uint, category
 		query = query.Joins("JOIN file_categories ON file_categories.file_id = files.id").Where("file_categories.category_id = ?", *categoryID)
 	}
 	if err := query.Find(&files).Error; err != nil {
+		return nil, err
+	}
+	return files, nil
+}
+
+func (r *FileRepository) ListFilesByWorkspaceWithCategories(workspaceID uint) ([]models.File, error) {
+	var files []models.File
+	if err := r.db.Preload("Categories").Where("workspace_id = ?", workspaceID).Find(&files).Error; err != nil {
 		return nil, err
 	}
 	return files, nil

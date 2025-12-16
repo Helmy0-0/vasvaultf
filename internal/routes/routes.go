@@ -16,7 +16,8 @@ func InitRoutes(r *gin.Engine, db *gorm.DB) {
 	userHandler := handlers.NewUserHandler(userService)
 
 	fileRepo := repositories.NewFileRepository(db)
-	fileService := services.NewFileService(fileRepo, "./uploads")
+	workspaceRepo := repositories.NewWorkspaceRepository(db)
+	fileService := services.NewFileService(fileRepo, workspaceRepo, "./uploads")
 	fileHandler := handlers.NewFileHandler(fileService)
 
 	// Category module
@@ -24,7 +25,6 @@ func InitRoutes(r *gin.Engine, db *gorm.DB) {
 	categoryService := services.NewCategoryService(categoryRepo)
 	categoryHandler := handlers.NewCategoryHandler(categoryService)
 
-	workspaceRepo := repositories.NewWorkspaceRepository(db)
 	workspaceService := services.NewWorkspaceService(workspaceRepo, userRepo)
 	workspaceHandler := handlers.NewWorkspaceHandler(workspaceService)
 
@@ -67,6 +67,7 @@ func InitRoutes(r *gin.Engine, db *gorm.DB) {
 			protected.POST("/workspaces", workspaceHandler.Create)
 			protected.GET("/workspaces", workspaceHandler.List)
 			protected.GET("/workspaces/:id", workspaceHandler.Detail)
+			protected.GET("/workspaces/:id/files", fileHandler.ListByWorkspace)
 			protected.PUT("/workspaces/:id", workspaceHandler.Update)
 			protected.DELETE("/workspaces/:id", workspaceHandler.Delete)
 			protected.POST("/workspaces/:id/members", workspaceHandler.AddMember)
