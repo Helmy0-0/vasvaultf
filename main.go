@@ -32,7 +32,7 @@ func main() {
 	}))
 	routes.InitRoutes(r, db.DB)
 
-	if err := r.Run(); err != nil {
+	if err := r.Run("0.0.0.0:8080"); err != nil {
 		panic("Failed to run server")
 	}
 }

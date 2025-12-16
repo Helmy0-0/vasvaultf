@@ -47,6 +47,17 @@ func (h *FileHandler) Upload(c *gin.Context) {
 	}
 	defer file.Close()
 
+	workspaceIDStr := c.PostForm("workspace_id")
+    if workspaceIDStr != "" {
+  
+        parsedID, err := strconv.ParseUint(workspaceIDStr, 10, 64)
+        if err == nil {
+            
+            workspaceID := uint(parsedID)
+            request.WorkspaceID = &workspaceID 
+        }
+    }
+
 	response, err := h.FileService.UploadFile(userID, file, header, request)
 	if err != nil {
 		utils.RespondJSON(c, http.StatusInternalServerError, nil, err.Error())
